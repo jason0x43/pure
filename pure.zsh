@@ -201,6 +201,14 @@ prompt_pure_precmd() {
 	if [[ -n $CONDA_DEFAULT_ENV ]]; then
 		psvar[12]="${CONDA_DEFAULT_ENV//[$'\t\r\n']}"
 	fi
+	# Check if a node environment is active and display its version
+	if typeset -f nvm_ls_current > /dev/null; then
+		local nvm_ver
+		nvm_ver=$(nvm_ls_current)
+		if [[ $nvm_ver != "system" ]]; then
+			psvar[12]=$nvm_ver
+		fi
+	fi
 	# When VIRTUAL_ENV_DISABLE_PROMPT is empty, it was unset by the user and
 	# Pure should take back control.
 	if [[ -n $VIRTUAL_ENV ]] && [[ -z $VIRTUAL_ENV_DISABLE_PROMPT || $VIRTUAL_ENV_DISABLE_PROMPT = 12 ]]; then
