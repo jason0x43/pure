@@ -204,19 +204,28 @@ prompt_pure_precmd() {
 	if [[ -n $CONDA_DEFAULT_ENV ]]; then
 		psvar[12]="${CONDA_DEFAULT_ENV//[$'\t\r\n']}"
 	fi
+
 	# Check if a node environment is active and display its version
+	psvar[13]=
 	if typeset -f nvm_ls_current > /dev/null; then
 		local nvm_ver
 		nvm_ver=$(nvm_ls_current)
 		if [[ $nvm_ver != "system" ]]; then
-			psvar[12]=$nvm_ver
+			psvar[13]=$nvm_ver
 		fi
 	fi
+
 	# When VIRTUAL_ENV_DISABLE_PROMPT is empty, it was unset by the user and
 	# Pure should take back control.
 	if [[ -n $VIRTUAL_ENV ]] && [[ -z $VIRTUAL_ENV_DISABLE_PROMPT || $VIRTUAL_ENV_DISABLE_PROMPT = 12 ]]; then
 		psvar[12]="${VIRTUAL_ENV:t}"
 		export VIRTUAL_ENV_DISABLE_PROMPT=12
+	fi
+
+	# If we're using a local npm registry, set a psvar flag
+	psvar[14]=
+	if [[ -n $npm_config_registry ]]; then
+		psvar[14]="npm"
 	fi
 
 	# Make sure VIM prompt is reset.
@@ -708,6 +717,12 @@ prompt_pure_setup() {
 
 	# If a virtualenv is activated, display it in grey.
 	PROMPT='%(12V.%F{$prompt_pure_colors[virtualenv]}%12v%f .)'
+
+	# if a nvm env is activated, display it in grey
+	PROMPT+='%(13V.%F{242}%13v%f .)'
+
+	# if npm_config_registry is defined (psvar[13]), show a flag
+	PROMPT+='%(14V.%F{2}%B%14v%b%f .)'
 
 	# Prompt turns red if the previous command didn't exit with 0.
 	PROMPT+='%(?.%F{$prompt_pure_colors[prompt:success]}.%F{$prompt_pure_colors[prompt:error]})${prompt_pure_state[prompt]}%f '
