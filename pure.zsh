@@ -207,7 +207,14 @@ prompt_pure_precmd() {
 
 	# Check if a node environment is active and display its version
 	psvar[13]=
-	if typeset -f nvm_ls_current > /dev/null; then
+	if (( $+commands[nodenv] )); then
+		local node_ver
+		node_ver=$(nodenv version-name)
+		if [[ $node_ver != "system" ]]; then
+			psvar[13]=$node_ver
+		fi
+	fi
+	if [[ -z $psvar[13] ]] && typeset -f nvm_ls_current > /dev/null; then
 		local nvm_ver
 		nvm_ver=$(nvm_ls_current)
 		if [[ $nvm_ver != "system" ]]; then
