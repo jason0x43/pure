@@ -97,9 +97,9 @@ prompt_pure_preexec() {
 	# Shows the current directory and executed command in the title while a process is active.
 	prompt_pure_set_title 'ignore-escape' "$PWD:t: $2"
 
-	# Disallow Python virtualenv from updating the prompt. Set it to 12 if
-	# untouched by the user to indicate that Pure modified it. Here we use
-	# the magic number 12, same as in `psvar`.
+	# Disallow pyenv from updating the prompt. Set it to 12 if untouched by the
+	# user to indicate that Pure modified it. Here we use the magic number 12,
+	# same as in `psvar`.
 	export PYENV_DISABLE_PROMPT=${PYENV_DISABLE_PROMPT:-12}
 }
 
@@ -201,15 +201,17 @@ prompt_pure_precmd() {
 	# Perform async Git dirty check and fetch.
 	prompt_pure_async_tasks
 
-	# Check if we should display the virtual env. We use a sufficiently high
-	# index of psvar (12) here to avoid collisions with user defined entries.
+	# Check if we're using a python environment
 	psvar[12]=
-	# Check if a Conda environment is active and display its name.
-	if [[ -n $CONDA_DEFAULT_ENV ]]; then
-		psvar[12]="${CONDA_DEFAULT_ENV//[$'\t\r\n']}"
+	if (( $+commands[pyenv] )); then
+		local pyenv_name
+		pyenv_name=$(pyenv version-name)
+		if [[ $pyenv_name != "system" ]]; then
+			psvar[12]=$pyenv_name
+		fi
 	fi
 
-	# Check if a node environment is active and display its version
+	# Check if we're using a node environment
 	psvar[13]=
 	if (( $+commands[nodenv] )); then
 		local node_ver
@@ -218,22 +220,8 @@ prompt_pure_precmd() {
 			psvar[13]=$(awk -F. '{print $1}' <<< $node_ver)
 		fi
 	fi
-	if [[ -z $psvar[13] ]] && typeset -f nvm_ls_current > /dev/null; then
-		local nvm_ver
-		nvm_ver=$(nvm_ls_current)
-		if [[ $nvm_ver != "system" ]]; then
-			psvar[13]=$nvm_ver
-		fi
-	fi
 
-	# When VIRTUAL_ENV_DISABLE_PROMPT is empty, it was unset by the user and
-	# Pure should take back control.
-	if [[ -n $VIRTUAL_ENV ]] && [[ -z $VIRTUAL_ENV_DISABLE_PROMPT || $VIRTUAL_ENV_DISABLE_PROMPT = 12 ]]; then
-		psvar[12]="${VIRTUAL_ENV:t}"
-		export VIRTUAL_ENV_DISABLE_PROMPT=12
-	fi
-
-	# If we're using a local npm registry, set a psvar flag
+	# Check if we're using a custom npm registry
 	psvar[14]=
 	local node_registry
 	node_registry=$npm_config_registry
@@ -246,7 +234,6 @@ prompt_pure_precmd() {
 		fi
 	fi
 	if [[ -n $node_registry ]]; then
-		#psvar[14]="npm"
 		psvar[14]=$(awk '-F[/:]' '{print $4}' <<< $node_registry)
 	fi
 
@@ -654,7 +641,6 @@ prompt_pure_system_report() {
 	for k v in "${(@kv)prompt_pure_state}"; do
 		print - "\t- $k: \`${(q)v}\`"
 	done
-	print - "- pyenv: \`$(typeset -p PYENV_DISABLE_PROMPT)\`"
 	print - "- Prompt: \`$(typeset -p PROMPT)\`"
 
 	local ohmyzsh=0
@@ -720,9 +706,9 @@ prompt_pure_setup() {
 		prompt:success       magenta
 		user                 242
 		user:root            default
-		pyenv                242
-		nodenv               242
-		npm                  242
+		pyenv                8
+		nodenv               8
+		npm                  8
 	)
 	prompt_pure_colors=("${(@kv)prompt_pure_colors_default}")
 
@@ -740,7 +726,7 @@ prompt_pure_setup() {
 	fi
 
 	# python env (psvar[12])
-	PROMPT='%(12V.%F{$prompt_pure_colors[virtualenv]} %12v%f .)'
+	PROMPT='%(12V.%F{$prompt_pure_colors[pyenv]} %12v%f .)'
 
 	# node env (psvar[13])
 	PROMPT+='%(13V.%F{$prompt_pure_colors[nodenv]} %13v%f .)'
