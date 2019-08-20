@@ -100,7 +100,7 @@ prompt_pure_preexec() {
 	# Disallow Python virtualenv from updating the prompt. Set it to 12 if
 	# untouched by the user to indicate that Pure modified it. Here we use
 	# the magic number 12, same as in `psvar`.
-	export VIRTUAL_ENV_DISABLE_PROMPT=${VIRTUAL_ENV_DISABLE_PROMPT:-12}
+	export PYENV_DISABLE_PROMPT=${PYENV_DISABLE_PROMPT:-12}
 }
 
 # Change the colors if their value are different from the current ones.
@@ -215,7 +215,7 @@ prompt_pure_precmd() {
 		local node_ver
 		node_ver=$(nodenv version-name)
 		if [[ $node_ver != "system" ]]; then
-			psvar[13]=$node_ver
+			psvar[13]=$(awk -F. '{print $1}' <<< $node_ver)
 		fi
 	fi
 	if [[ -z $psvar[13] ]] && typeset -f nvm_ls_current > /dev/null; then
@@ -235,8 +235,19 @@ prompt_pure_precmd() {
 
 	# If we're using a local npm registry, set a psvar flag
 	psvar[14]=
-	if [[ -n $npm_config_registry ]]; then
-		psvar[14]="npm"
+	local node_registry
+	node_registry=$npm_config_registry
+	# If we're using nodenv, it can override env vars for node commands
+	if (( $+commands[nodenv] )); then
+		local ncr
+		ncr=$(nodenv vars | grep npm_config_registry | awk -F\' '{ print $2 }')
+		if [[ -n $ncr ]]; then
+			node_registry=$ncr
+		fi
+	fi
+	if [[ -n $node_registry ]]; then
+		#psvar[14]="npm"
+		psvar[14]=$(awk '-F[/:]' '{print $4}' <<< $node_registry)
 	fi
 
 	# Make sure VIM prompt is reset.
@@ -643,7 +654,7 @@ prompt_pure_system_report() {
 	for k v in "${(@kv)prompt_pure_state}"; do
 		print - "\t- $k: \`${(q)v}\`"
 	done
-	print - "- Virtualenv: \`$(typeset -p VIRTUAL_ENV_DISABLE_PROMPT)\`"
+	print - "- pyenv: \`$(typeset -p PYENV_DISABLE_PROMPT)\`"
 	print - "- Prompt: \`$(typeset -p PROMPT)\`"
 
 	local ohmyzsh=0
@@ -709,7 +720,9 @@ prompt_pure_setup() {
 		prompt:success       magenta
 		user                 242
 		user:root            default
-		virtualenv           242
+		pyenv                242
+		nodenv               242
+		npm                  242
 	)
 	prompt_pure_colors=("${(@kv)prompt_pure_colors_default}")
 
@@ -726,14 +739,14 @@ prompt_pure_setup() {
 		add-zle-hook-widget zle-keymap-select prompt_pure_update_vim_prompt_widget
 	fi
 
-	# If a virtualenv is activated, display it in grey.
-	PROMPT='%(12V.%F{$prompt_pure_colors[virtualenv]}%12v%f .)'
+	# python env (psvar[12])
+	PROMPT='%(12V.%F{$prompt_pure_colors[virtualenv]} %12v%f .)'
 
-	# if a nvm env is activated, display it in grey
-	PROMPT+='%(13V.%F{242}%13v%f .)'
+	# node env (psvar[13])
+	PROMPT+='%(13V.%F{$prompt_pure_colors[nodenv]} %13v%f .)'
 
-	# if npm_config_registry is defined (psvar[13]), show a flag
-	PROMPT+='%(14V.%F{2}%B%14v%b%f .)'
+	# alternate npm_config_registry (psvar[14])
+	PROMPT+='%(14V.%F{$prompt_pure_colors[npm]} %14v%f .)'
 
 	# Prompt turns red if the previous command didn't exit with 0.
 	PROMPT+='%(?.%F{$prompt_pure_colors[prompt:success]}.%F{$prompt_pure_colors[prompt:error]})${prompt_pure_state[prompt]}%f '
